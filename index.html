@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drilling Management — UPNVY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0a0e14;
+    --bg-panel:#121820;
+    --bg-panel-2:#171f29;
+    --steel:#2a3a48;
+    --steel-line:#324557;
+    --amber:#e8a33d;
+    --amber-dim:#8a6626;
+    --teal:#3e8e86;
+    --text-primary:#f0ede4;
+    --text-muted:#9aa8b2;
+    --text-faint:#647380;
+    --danger:#c9563f;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'IBM Plex Sans', sans-serif;
+    color:var(--text-primary);
+    background:var(--bg-deep);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* ===== Background rig scenes ===== */
+  #bg-stage{
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+    background:var(--bg-deep);
+  }
+  .scene{
+    position:absolute; inset:0;
+    opacity:0;
+    transition:opacity 3s ease-in-out;
+  }
+  .scene.active{ opacity:1; }
+  .scene svg{ width:100%; height:100%; display:block; }
+  #bg-overlay{
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(10,14,20,0.88) 0%, rgba(10,14,20,0.80) 40%, rgba(10,14,20,0.93) 100%);
+  }
+
+  /* ===== Layout shell ===== */
+  #app{ position:relative; z-index:1; display:flex; min-height:100vh; }
+
+  /* Sidebar */
+  #sidebar{
+    width:280px; flex-shrink:0;
+    background:rgba(18,24,32,0.72);
+    backdrop-filter:blur(6px);
+    border-right:1px solid var(--steel-line);
+    padding:28px 0 24px;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  .brand{
+    padding:0 24px 22px;
+    border-bottom:1px solid var(--steel-line);
+    margin-bottom:18px;
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.12em; color:var(--amber);
+    text-transform:uppercase; margin-bottom:6px;
+  }
+  .brand-title{
+    font-family:'Oswald',sans-serif; font-weight:600;
+    font-size:22px; line-height:1.15; letter-spacing:.01em;
+  }
+  .brand-sub{
+    font-size:12px; color:var(--text-muted); margin-top:8px; line-height:1.5;
+  }
+
+  nav.chapter-nav{ padding:0 12px; }
+  .nav-item{
+    display:block; width:100%; text-align:left;
+    background:none; border:none; cursor:pointer;
+    color:var(--text-muted);
+    font-family:'IBM Plex Sans',sans-serif;
+    padding:11px 12px; border-radius:6px;
+    margin-bottom:2px; font-size:14.5px;
+    display:flex; align-items:baseline; gap:10px;
+    transition:background .15s, color .15s;
+  }
+  .nav-item .num{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+    color:var(--amber-dim); flex-shrink:0;
+  }
+  .nav-item:hover{ background:rgba(232,163,61,0.08); color:var(--text-primary); }
+  .nav-item.active{ background:rgba(232,163,61,0.14); color:var(--text-primary); }
+  .nav-item.active .num{ color:var(--amber); }
+  .nav-item.home{ text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; }
+
+  .sidebar-footer{
+    margin-top:22px; padding:14px 24px 0; border-top:1px solid var(--steel-line);
+    font-size:11px; color:var(--text-faint); line-height:1.6;
+  }
+
+  /* Main */
+  #main{ flex:1; min-width:0; padding:48px 56px 80px; max-width:980px; }
+  @media (max-width:900px){
+    #sidebar{ display:none; }
+    #main{ padding:28px 20px 60px; max-width:100%; }
+    .mobile-nav-toggle{ display:flex !important; }
+  }
+
+  .mobile-nav-toggle{
+    display:none; position:fixed; top:16px; left:16px; z-index:10;
+    background:var(--bg-panel); border:1px solid var(--steel-line);
+    color:var(--text-primary); padding:10px 14px; border-radius:6px;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; cursor:pointer;
+  }
+  #sidebar.mobile-open{ display:block; position:fixed; z-index:9; width:82vw; }
+
+  /* Home view */
+  .home-hero{ margin-bottom:52px; }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em;
+    color:var(--amber); text-transform:uppercase; margin-bottom:14px;
+  }
+  h1.hero-title{
+    font-family:'Oswald',sans-serif; font-weight:700; font-size:52px;
+    line-height:1.05; letter-spacing:.005em; max-width:9em;
+  }
+  .hero-desc{
+    margin-top:18px; color:var(--text-muted); font-size:16px; line-height:1.7; max-width:640px;
+  }
+
+  .chapter-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:36px; }
+  @media (max-width:700px){ .chapter-grid{ grid-template-columns:1fr; } }
+  .chapter-card{
+    background:rgba(23,31,41,0.72); border:1px solid var(--steel-line); border-radius:10px;
+    padding:22px 22px 20px; cursor:pointer; transition:border-color .15s, transform .15s;
+    backdrop-filter:blur(4px);
+  }
+  .chapter-card:hover{ border-color:var(--amber-dim); transform:translateY(-2px); }
+  .chapter-card .num{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--amber); margin-bottom:10px; display:block;
+  }
+  .chapter-card h3{
+    font-family:'Oswald',sans-serif; font-weight:500; font-size:19px; margin-bottom:8px;
+  }
+  .chapter-card p{ font-size:13.5px; color:var(--text-muted); line-height:1.55; }
+
+  /* Chapter view */
+  .chapter-header{ margin-bottom:8px; }
+  .chapter-header .num{
+    font-family:'IBM Plex Mono',monospace; color:var(--amber); font-size:13px; letter-spacing:.08em;
+  }
+  h2.chapter-title{
+    font-family:'Oswald',sans-serif; font-weight:600; font-size:36px; margin-top:8px; line-height:1.1;
+  }
+  .chapter-subtitle{ color:var(--text-muted); margin-top:10px; font-size:15px; }
+
+  .tabs{ display:flex; gap:4px; margin:28px 0 26px; border-bottom:1px solid var(--steel-line); }
+  .tab-btn{
+    background:none; border:none; color:var(--text-muted); cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif; font-size:14.5px; padding:10px 4px; margin-right:26px;
+    border-bottom:2px solid transparent; transition:color .15s, border-color .15s;
+  }
+  .tab-btn.active{ color:var(--text-primary); border-color:var(--amber); }
+  .tab-btn:hover{ color:var(--text-primary); }
+
+  .materi-block{ margin-bottom:26px; }
+  .materi-block h4{
+    font-family:'Oswald',sans-serif; font-weight:500; font-size:18px; color:var(--amber);
+    margin-bottom:10px;
+  }
+  .materi-block p, .materi-block li{
+    font-size:15px; line-height:1.75; color:#dfe3e6;
+  }
+  .materi-block ul{ padding-left:20px; margin-top:6px; }
+  .materi-block li{ margin-bottom:6px; }
+
+  .download-box{
+    margin-top:34px; padding:18px 20px; background:rgba(62,142,134,0.09);
+    border:1px solid rgba(62,142,134,0.35); border-radius:8px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .download-box .label{ font-size:13.5px; color:var(--text-muted); }
+  .download-box .filename{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text-primary); margin-top:3px; }
+  .btn{
+    display:inline-block; background:var(--amber); color:#1a1206; text-decoration:none;
+    font-family:'IBM Plex Sans',sans-serif; font-weight:600; font-size:13.5px;
+    padding:10px 18px; border-radius:6px; border:none; cursor:pointer;
+    transition:background .15s;
+  }
+  .btn:hover{ background:#f2b559; }
+  .btn.secondary{
+    background:none; border:1px solid var(--steel-line); color:var(--text-primary);
+  }
+  .btn.secondary:hover{ border-color:var(--amber-dim); background:rgba(232,163,61,0.06); }
+
+  /* Tugas tab */
+  .tugas-card{
+    background:rgba(23,31,41,0.72); border:1px solid var(--steel-line); border-radius:10px;
+    padding:26px 26px 24px;
+  }
+  .tugas-status{
+    display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:4px;
+    background:rgba(232,163,61,0.14); color:var(--amber); margin-bottom:16px;
+  }
+  .tugas-card h4{ font-family:'Oswald',sans-serif; font-size:19px; font-weight:500; margin-bottom:12px; }
+  .tugas-card p{ font-size:14.5px; color:var(--text-muted); line-height:1.7; margin-bottom:10px; }
+  .tugas-placeholder{
+    margin-top:18px; padding:16px 18px; border:1px dashed var(--steel-line); border-radius:8px;
+    font-size:13.5px; color:var(--text-faint); line-height:1.6;
+  }
+
+  .chapter-nav-footer{
+    margin-top:52px; padding-top:24px; border-top:1px solid var(--steel-line);
+    display:flex; justify-content:space-between; gap:16px;
+  }
+  .chapter-nav-footer a{
+    color:var(--text-muted); text-decoration:none; font-size:13.5px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .chapter-nav-footer a:hover{ color:var(--amber); }
+
+  ::-webkit-scrollbar{ width:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--steel-line); border-radius:5px; }
+</style>
+</head>
+<body>
+
+<div id="bg-stage">
+  <div class="scene active" id="scene-offshore"></div>
+  <div class="scene" id="scene-onshore"></div>
+  <div id="bg-overlay"></div>
+</div>
+
+<button class="mobile-nav-toggle" id="mobileNavToggle">☰ Menu</button>
+
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-eyebrow">UPN "Veteran" Yogyakarta</div>
+      <div class="brand-title">Drilling Management</div>
+      <div class="brand-sub">Program Magister Teknik Perminyakan<br>Fakultas Teknologi Mineral</div>
+      <div class="brand-sub" style="margin-top:10px;">Dosen Pengampu:<br>Dr. Ir. Drs. Herianto, M.Sc.<br>Prof. Dr. Ir. Aris Buntoro, M.T., IPU</div>
+    </div>
+    <nav class="chapter-nav" id="chapterNav"></nav>
+    <div class="sidebar-footer">Materi disusun bertahap tiap minggu. Halaman ini akan terus bertambah mengikuti perkuliahan.</div>
+  </aside>
+
+  <main id="main"></main>
+</div>
+
+<script>
+/* ================= DATA ================= */
+/* Struktur fleksibel: tambah objek baru ke array 'chapters' untuk minggu berikutnya */
+const chapters = [
+  {
+    id: "ch1",
+    num: "01",
+    title: "Introduction",
+    subtitle: "Pengantar operasi pemboran: tujuan, jenis, dan prinsip dasar rotary drilling.",
+    file: "drilling-management-week1.ppt",
+    sections: [
+      {
+        h: "Tujuan Pemboran",
+        p: "Operasi pemboran sistem putar modern memiliki satu fungsi utama: secara aman membuat lubang (well bore) hingga menembus formasi yang berpotensi mengandung minyak dan/atau gas. Lubang tersebut kemudian dijaga kestabilannya dengan casing, menghubungkan formasi produktif dengan permukaan sehingga migas dapat diproduksikan."
+      },
+      {
+        h: "Jenis Pemboran",
+        p: "Jenis pemboran ditentukan berdasarkan type dan profil sumur — mencakup pemboran vertikal, directional (miring), horizontal, hingga multilateral — disesuaikan dengan kondisi reservoir dan target produksi."
+      },
+      {
+        h: "Prinsip Pemboran",
+        list: [
+          "Rig pemboran putar (rotary drilling rig) terdiri dari lima komponen utama yang bekerja bersamaan.",
+          "Sistem angkat — menaik-turunkan dan menahan rangkaian pipa bor.",
+          "Sistem putar — memutar rangkaian pipa bor dan bit.",
+          "Sistem sirkulasi — mengalirkan lumpur bor untuk mengangkat cutting.",
+          "Sistem tenaga — menyediakan daya untuk seluruh komponen rig.",
+          "Sistem pencegah semburan liar (BOP) — mengendalikan tekanan sumur untuk keselamatan operasi."
+        ]
+      }
+    ]
+  },
+  {
+    id: "ch2",
+    num: "02",
+    title: "Formation Characterization",
+    subtitle: "Karakteristik batuan, jenis litologi, serta tekanan dan temperatur formasi.",
+    file: "drilling-management-week1.ppt",
+    sections: [
+      {
+        h: "Karakteristik Batuan",
+        p: "Karakteristik batuan merupakan unalterable factor — parameter tetap yang tidak dapat diubah karena merupakan bentukan alam. Faktor ini menjadi dasar penentuan parameter pemboran mekanik dan hidrolik. Parameter penting yang berpengaruh: densitas, porositas, saturasi dan permeabilitas, compressive strength, hardness, abrasiveness, elastisitas, drillability, tekanan formasi, tekanan rekah formasi, tekanan overburden, dan temperatur batuan."
+      },
+      {
+        h: "Klasifikasi Kekerasan Batuan (Skala Mohs)",
+        list: [
+          "Batuan lunak — kekerasan relatif < 4 (clay, shale lunak, batupasir unconsolidated–moderate).",
+          "Batuan sedang — kekerasan relatif 4–7 (shale, limestone/dolomite porous, gypsum).",
+          "Batuan keras — kekerasan relatif > 7 (quartzitic sand, schist, silt stone terkonsolidasi baik)."
+        ]
+      },
+      {
+        h: "Jenis Litologi yang Sering Dijumpai",
+        list: [
+          "Clay — material unconsolidated, umumnya tidak abrasive.",
+          "Loose sand — pecahan quartz/silika, umumnya pada formasi muda.",
+          "Shale — clay yang consolidated akibat tekanan tektonik, dapat brittle atau ulet.",
+          "Silt — antara clay dan sand, agak konsolidasi, tidak plastik.",
+          "Sandy shale & chalk — variasi campuran shale-sand dan limestone lunak.",
+          "Grit, sandstone, konglomerat — kekerasan bervariasi tergantung matriks dan sementasi.",
+          "Limestone, dolomite, anhydrite, quartzite, chert — batuan keras hingga sangat keras yang memerlukan bit bergigi pendek dan kuat."
+        ]
+      },
+      {
+        h: "Tekanan Formasi",
+        p: "Tekanan formasi digolongkan menjadi tiga: tekanan normal (sebanding dengan tekanan hidrostatik fluida formasi, gradien 0.433–0.465 psi/ft), tekanan abnormal (jauh lebih besar dari kecenderungan sekitarnya), dan tekanan subnormal (lebih kecil dari normal). Evaluasi tekanan formasi yang tidak akurat dapat menimbulkan problem pemboran seperti loss circulation, kick, blowout, stuck pipe, dan hole instability."
+      },
+      {
+        h: "Tekanan Overburden & Tekanan Rekah Formasi",
+        p: "Tekanan overburden tercipta dari berat batuan dan fluida di atasnya. Tekanan rekah formasi adalah besarnya tekanan yang menyebabkan batuan pecah — menjadi acuan agar densitas lumpur tidak melebihi batas ini (mencegah loss circulation) namun cukup untuk mengontrol tekanan formasi (mencegah kick)."
+      },
+      {
+        h: "Temperatur Formasi",
+        p: "Temperatur reservoir meningkat seiring bertambahnya kedalaman, disebut gradien geothermis (rata-rata ±2°F/ft, bervariasi 0.5–4°F/ft tergantung konduktivitas termis batuan setempat)."
+      }
+    ]
+  },
+  {
+    id: "ch3",
+    num: "03",
+    title: "Drilling Equipment",
+    subtitle: "Lima sistem utama rig pemboran putar dan jenis-jenis casing.",
+    file: "drilling-management-week1.ppt",
+    sections: [
+      {
+        h: "Lima Sistem Utama Rig",
+        list: [
+          "Sistem tenaga (power system) — inti rig, menghasilkan tenaga dari prime mover (internal combustion engine) dan mendistribusikannya secara mekanik/elektrik.",
+          "Sistem angkat (hoisting system) — terdiri dari struktur menara (rig) dan peralatan angkat (drawwork, crown block, travelling block, hook, elevator, drilling line).",
+          "Sistem putar (rotary system) — rotary assembly (meja putar, master bushing, kelly bushing, rotary slip) dan rangkaian pipa bor (swivel, kelly, drill pipe, drill collar, BHA, bit).",
+          "Sistem sirkulasi — mengalirkan lumpur bor untuk mengangkat cutting dan menjaga tekanan lubang bor.",
+          "Sistem pencegah semburan liar (BOP) — mengendalikan tekanan sumur saat terjadi kick."
+        ]
+      },
+      {
+        h: "Rangkaian Pipa Bor",
+        p: "Swivel berada di ujung teratas rangkaian pipa bor, memberikan kebebasan berputar tanpa ikut berputar, memadukan gerak vertikal dan rotasi, serta menjadi penghubung antara rotary hose dan kelly agar lumpur bor dapat bersirkulasi tanpa kebocoran. Rangkaian pipa bor secara umum terdiri dari: swivel, kelly, drill pipe, drill collar, BHA (DC, HWDP, stabilizer, sub, DHMM, NMDC, jar, gyro, MWD, LWD), dan bit."
+      },
+      {
+        h: "Perhitungan Horsepower Sistem Angkat",
+        p: "Kapasitas rig ditentukan dengan menghitung horsepower (HP) yang diperlukan drawwork berdasarkan beban hook (W) dan kecepatan naik-turun travelling block (Vh), serta HP input yang harus disediakan prime mover ke drawwork."
+      },
+      {
+        h: "Jenis-jenis Casing",
+        list: [
+          "Conductor casing — pipa pendek (90–150 ft), diameter 16–30 inch, melindungi struktur tanah lunak di dasar menara bor.",
+          "Surface casing — dipasang cukup dalam untuk mencegah runtuhnya dinding lubang pada formasi dekat permukaan yang tidak kompak.",
+          "Intermediate casing — melindungi lubang bor pada formasi lemah yang dapat rusak oleh lumpur berdensitas tinggi.",
+          "Production casing — tujuan utama pemboran; mengisolasi fluida yang tidak dikehendaki dari formasi produktif."
+        ]
+      }
+    ]
+  },
+  {
+    id: "ch4",
+    num: "04",
+    title: "Drilling Programs",
+    subtitle: "Konstruksi sumur, penentuan ukuran tubing, dan contoh program pemboran.",
+    file: "drilling-management-week1.ppt",
+    sections: [
+      {
+        h: "Konstruksi Sumur",
+        p: "Konstruksi sumur adalah penampang yang memperlihatkan program casing, penyemenan, dan komplesi sumur — direncanakan seakurat mungkin berdasarkan kondisi geologi bawah permukaan, jenis material, dan efisiensi peralatan. Program casing menjadi tahap awal, diikuti program penyemenan, hingga sumur diselesaikan untuk memproduksikan fluida hidrokarbon ke permukaan."
+      },
+      {
+        h: "Langkah Penentuan Konstruksi Sumur",
+        list: [
+          "Tentukan ukuran dan jumlah tubing yang digunakan.",
+          "Tentukan ukuran casing produksi.",
+          "Tentukan setting depth casing produksi.",
+          "Tentukan ukuran casing intermediate, surface, dan conductor.",
+          "Tentukan setting depth casing intermediate, surface, dan conductor.",
+          "Rencanakan completion sumur."
+        ]
+      },
+      {
+        h: "Penentuan Ukuran Tubing",
+        p: "Ukuran tubing optimum dipilih berdasarkan kurva IPR (Inflow Performance Relationship) dan Tubing Performance, untuk mendapatkan laju produksi maksimum yang masih berada dalam batas kemampuan formasi — dikenal sebagai Maximum Efficiency Rate (MER). Produksi di atas MER akan mengurangi ultimate recovery minyak."
+      },
+      {
+        h: "Contoh Kasus: Program Pemboran Sumur PDM-B",
+        p: "Sumur deliniasi (PDM)-B direncanakan dibor vertikal dengan estimasi total 88 hari kerja (55 hari dry hole basis, 33 hari completion basis) hingga kedalaman akhir 3510–3515 m. Tahapan trayek lubang bertingkat: 36\" → 26\" → 17½\" → 12¼\" → 8½\" → 6\", masing-masing diikuti pemasangan dan penyemenan casing (30\", 20\", 13⅜\", 9⅝\", liner 7\") serta uji integritas (leak-off test) di tiap trayek."
+      },
+      {
+        h: "Ketentuan Umum Program Pemboran",
+        list: [
+          "Drilling Supervisor/Company Man wajib membaca dan memahami seluruh isi program pemboran.",
+          "Acuan kedalaman menggunakan MBLB (meter bawah lantai bor).",
+          "Drill off test dilakukan tiap pemakaian bit baru untuk memperoleh ROP optimal.",
+          "Slow pump rate dilakukan pada crew change, pergantian bit/BHA, tiap kemajuan 400 m, dan perubahan SG lumpur.",
+          "Test BOP dilakukan berkala setiap 2 minggu atau tiap memasuki trayek baru."
+        ]
+      },
+      {
+        h: "Jenis Kontrak Pemboran",
+        list: [
+          "Kontrak rig",
+          "Kontrak material dan chemical",
+          "Kontrak lumpur dan semen",
+          "Kontrak MWD, directional drilling, top drive",
+          "Kontrak alat berat",
+          "Kontrak mud logger dan geologist",
+          "Kontrak logging dan perforating"
+        ]
+      }
+    ]
+  },
+  {
+    id: "ch5",
+    num: "05",
+    title: "Drilling Manpower",
+    subtitle: "Struktur organisasi dan pemangku kepentingan dalam operasi pemboran.",
+    file: "drilling-management-week1.ppt",
+    sections: [
+      {
+        h: "Oil Company",
+        p: "Oil Company adalah perusahaan minyak dan gas bumi pemilik lapangan yang akan dibor. Struktur personel drilling pada oil company umumnya mencakup: Drilling Manager, Senior Drilling Engineer, Junior Drilling Engineer, Well Planner, Drilling Contract Management and Support, Logistic Drilling, Drilling Specialist, Drilling Superintendent, dan Drilling Supervisor (Company Man)."
+      },
+      {
+        h: "Rig Company",
+        p: "Rig Company adalah perusahaan yang menyediakan jasa penyewaan rig beserta personelnya, contohnya PDSI (Pertamina Drilling Service), Bormindo, Apexindo, dan Radian Utama. Di Indonesia, kontraktor rig tergabung dalam APMI (Asosiasi Pemboran Minyak dan Gas Indonesia) yang turut menentukan harga sewa rig agar terjadi persaingan sehat. Biaya sewa rig umumnya sudah termasuk biaya personel rig."
+      },
+      {
+        h: "Service Drilling Company",
+        p: "Service Drilling Company adalah perusahaan penyedia jasa pendukung pemboran seperti service lumpur, semen, logging, core dan log, directional drilling, top drive system, hingga well testing — umumnya dipimpin engineer senior, supervisor, dan operator di lapangan. Contoh perusahaan: Halliburton, Schlumberger, Elnusa, Baker, Amerada."
+      }
+    ]
+  }
+];
+
+/* ================= STATE & ROUTER ================= */
+let currentView = "home";
+let currentTab = "materi";
+
+function renderNav(){
+  const nav = document.getElementById("chapterNav");
+  let html = `<button class="nav-item home ${currentView==='home'?'active':''}" data-route="home">Beranda</button>`;
+  chapters.forEach(c=>{
+    html += `<button class="nav-item ${currentView===c.id?'active':''}" data-route="${c.id}">
+      <span class="num">${c.num}</span><span>${c.title}</span>
+    </button>`;
+  });
+  nav.innerHTML = html;
+  nav.querySelectorAll("[data-route]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      navigate(btn.dataset.route);
+      document.getElementById("sidebar").classList.remove("mobile-open");
+    });
+  });
+}
+
+function navigate(route){
+  currentView = route;
+  currentTab = "materi";
+  renderNav();
+  renderMain();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function renderMain(){
+  const main = document.getElementById("main");
+  if(currentView === "home"){
+    main.innerHTML = renderHome();
+    main.querySelectorAll(".chapter-card").forEach(card=>{
+      card.addEventListener("click", ()=> navigate(card.dataset.id));
+    });
+    return;
+  }
+  const chapter = chapters.find(c=>c.id===currentView);
+  if(!chapter){ main.innerHTML = renderHome(); return; }
+  main.innerHTML = renderChapter(chapter);
+
+  main.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      currentTab = btn.dataset.tab;
+      renderMain();
+    });
+  });
+  const prevBtn = main.querySelector("[data-nav='prev']");
+  const nextBtn = main.querySelector("[data-nav='next']");
+  if(prevBtn) prevBtn.addEventListener("click", ()=> navigate(prevBtn.dataset.id));
+  if(nextBtn) nextBtn.addEventListener("click", ()=> navigate(nextBtn.dataset.id));
+}
+
+function renderHome(){
+  let cards = chapters.map(c=>`
+    <div class="chapter-card" data-id="${c.id}">
+      <span class="num">Minggu ${parseInt(c.num)} — Bab ${parseInt(c.num)}</span>
+      <h3>${c.title}</h3>
+      <p>${c.subtitle}</p>
+    </div>
+  `).join("");
+  return `
+    <div class="home-hero">
+      <div class="eyebrow">Drilling Management · S2 Teknik Perminyakan</div>
+      <h1 class="hero-title">Materi Perkuliahan Drilling Management</h1>
+      <p class="hero-desc">Portal materi mingguan untuk mata kuliah Drilling Management, Program Magister Teknik Perminyakan, Fakultas Teknologi Mineral, UPN "Veteran" Yogyakarta. Diampu oleh Dr. Ir. Drs. Herianto, M.Sc. dan Prof. Dr. Ir. Aris Buntoro, M.T., IPU. Setiap minggu berisi ringkasan materi dan halaman tugas — daftar akan terus bertambah mengikuti jadwal perkuliahan.</p>
+    </div>
+    <div class="chapter-grid">${cards}</div>
+  `;
+}
+
+function renderSection(s){
+  if(s.list){
+    return `<div class="materi-block"><h4>${s.h}</h4><ul>${s.list.map(li=>`<li>${li}</li>`).join("")}</ul></div>`;
+  }
+  return `<div class="materi-block"><h4>${s.h}</h4><p>${s.p}</p></div>`;
+}
+
+function renderChapter(chapter){
+  const idx = chapters.findIndex(c=>c.id===chapter.id);
+  const prev = chapters[idx-1];
+  const next = chapters[idx+1];
+
+  const materiHtml = `
+    ${chapter.sections.map(renderSection).join("")}
+    <div class="download-box">
+      <div>
+        <div class="label">Materi asli dari dosen</div>
+        <div class="filename">${chapter.file}</div>
+      </div>
+      <a class="btn secondary" href="./materi/${chapter.file}" download>Unduh PPT Asli</a>
+    </div>
+  `;
+
+  const tugasHtml = `
+    <div class="tugas-card">
+      <span class="tugas-status">Belum ditentukan</span>
+      <h4>Tugas Minggu ${parseInt(chapter.num)} — ${chapter.title}</h4>
+      <p>Instruksi tugas untuk minggu ini akan disampaikan oleh dosen pengampu saat kelas online berlangsung. Halaman ini sudah disiapkan agar tugas bisa langsung ditambahkan begitu diberikan, tanpa perlu mengubah struktur website.</p>
+      <div class="tugas-placeholder">
+        Placeholder — ganti bagian ini dengan instruksi tugas resmi (deskripsi tugas, format pengumpulan, dan tenggat waktu) setelah diterima dari dosen.
+      </div>
+    </div>
+  `;
+
+  return `
+    <div class="chapter-header">
+      <div class="num">Minggu ${parseInt(chapter.num)} · Bab ${parseInt(chapter.num)}</div>
+      <h2 class="chapter-title">${chapter.title}</h2>
+      <p class="chapter-subtitle">${chapter.subtitle}</p>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn ${currentTab==='materi'?'active':''}" data-tab="materi">Materi</button>
+      <button class="tab-btn ${currentTab==='tugas'?'active':''}" data-tab="tugas">Tugas</button>
+    </div>
+    ${currentTab==='materi' ? materiHtml : tugasHtml}
+    <div class="chapter-nav-footer">
+      ${prev ? `<a data-nav="prev" data-id="${prev.id}">← Minggu ${parseInt(prev.num)}: ${prev.title}</a>` : `<span></span>`}
+      ${next ? `<a data-nav="next" data-id="${next.id}">Minggu ${parseInt(next.num)}: ${next.title} →</a>` : `<span></span>`}
+    </div>
+  `;
+}
+
+/* ================= BACKGROUND SCENES ================= */
+const offshoreSVG = `
+<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="skyOff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1b2e"/>
+      <stop offset="55%" stop-color="#152a42"/>
+      <stop offset="100%" stop-color="#0a1420"/>
+    </linearGradient>
+    <linearGradient id="seaOff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e2436"/>
+      <stop offset="100%" stop-color="#050b12"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#skyOff)"/>
+  <circle cx="1300" cy="150" r="60" fill="#f0e4c8" opacity="0.18"/>
+  <rect y="560" width="1600" height="340" fill="url(#seaOff)"/>
+  <g opacity="0.35" stroke="#3e8e86" stroke-width="2" fill="none">
+    <path d="M0 600 Q 100 590 200 600 T 400 600 T 600 600 T 800 600 T1000 600 T1200 600 T1400 600 T1600 600"/>
+    <path d="M0 640 Q 100 630 200 640 T 400 640 T 600 640 T 800 640 T1000 640 T1200 640 T1400 640 T1600 640"/>
+  </g>
+  <!-- offshore platform legs -->
+  <g stroke="#4a5a68" stroke-width="6" opacity="0.85">
+    <line x1="650" y1="600" x2="600" y2="900"/>
+    <line x1="950" y1="600" x2="1000" y2="900"/>
+    <line x1="700" y1="600" x2="720" y2="900"/>
+    <line x1="900" y1="600" x2="880" y2="900"/>
+  </g>
+  <!-- deck -->
+  <rect x="620" y="560" width="360" height="46" fill="#2a3a48"/>
+  <!-- derrick tower -->
+  <g stroke="#e8a33d" stroke-width="4" fill="none" opacity="0.9">
+    <line x1="800" y1="560" x2="740" y2="300"/>
+    <line x1="800" y1="560" x2="860" y2="300"/>
+    <line x1="740" y1="300" x2="860" y2="300"/>
+    <line x1="770" y1="460" x2="830" y2="460"/>
+    <line x1="755" y1="400" x2="845" y2="400"/>
+    <line x1="745" y1="340" x2="855" y2="340"/>
+  </g>
+  <circle cx="800" cy="295" r="6" fill="#e8a33d">
+    <animate attributeName="opacity" values="1;0.25;1" dur="2.4s" repeatCount="indefinite"/>
+  </circle>
+  <!-- small side structures -->
+  <rect x="640" y="500" width="34" height="60" fill="#233240" opacity="0.9"/>
+  <rect x="930" y="510" width="26" height="50" fill="#233240" opacity="0.9"/>
+</svg>`;
+
+const onshoreSVG = `
+<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="skyOn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#101820"/>
+      <stop offset="60%" stop-color="#1c2a30"/>
+      <stop offset="100%" stop-color="#0a0e14"/>
+    </linearGradient>
+    <linearGradient id="groundOn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#241d16"/>
+      <stop offset="100%" stop-color="#0d0a07"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#skyOn)"/>
+  <circle cx="300" cy="180" r="55" fill="#e8a33d" opacity="0.12"/>
+  <rect y="640" width="1600" height="260" fill="url(#groundOn)"/>
+  <path d="M0 640 Q 400 610 800 645 T 1600 630 V900 H0 Z" fill="#150f0a" opacity="0.6"/>
+  <!-- derrick tower onshore -->
+  <g stroke="#e8a33d" stroke-width="5" fill="none" opacity="0.92">
+    <line x1="800" y1="650" x2="720" y2="260"/>
+    <line x1="800" y1="650" x2="880" y2="260"/>
+    <line x1="720" y1="260" x2="880" y2="260"/>
+    <line x1="742" y1="560" x2="858" y2="560"/>
+    <line x1="748" y1="480" x2="852" y2="480"/>
+    <line x1="756" y1="400" x2="844" y2="400"/>
+    <line x1="764" y1="330" x2="836" y2="330"/>
+  </g>
+  <circle cx="800" cy="255" r="7" fill="#e8a33d">
+    <animate attributeName="opacity" values="1;0.2;1" dur="2.1s" repeatCount="indefinite"/>
+  </circle>
+  <!-- base structures / trucks -->
+  <rect x="600" y="600" width="120" height="50" fill="#2a2018" opacity="0.9"/>
+  <rect x="900" y="610" width="90" height="40" fill="#2a2018" opacity="0.9"/>
+  <rect x="1030" y="625" width="60" height="25" fill="#3a2e22" opacity="0.85"/>
+  <circle cx="1045" cy="655" r="9" fill="#1a1410"/>
+  <circle cx="1075" cy="655" r="9" fill="#1a1410"/>
+  <!-- flare -->
+  <g>
+    <line x1="1180" y1="650" x2="1180" y2="470" stroke="#4a3a2a" stroke-width="5"/>
+    <path d="M1180 470 Q1195 440 1180 415 Q1165 440 1180 470 Z" fill="#e8a33d" opacity="0.75">
+      <animate attributeName="opacity" values="0.9;0.5;0.9" dur="1.6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+</svg>`;
+
+document.getElementById("scene-offshore").innerHTML = offshoreSVG;
+document.getElementById("scene-onshore").innerHTML = onshoreSVG;
+
+let sceneIdx = 0;
+const scenes = [document.getElementById("scene-offshore"), document.getElementById("scene-onshore")];
+setInterval(()=>{
+  scenes[sceneIdx].classList.remove("active");
+  sceneIdx = (sceneIdx+1) % scenes.length;
+  scenes[sceneIdx].classList.add("active");
+}, 9000);
+
+/* ================= MOBILE NAV ================= */
+document.getElementById("mobileNavToggle").addEventListener("click", ()=>{
+  document.getElementById("sidebar").classList.toggle("mobile-open");
+});
+
+/* ================= INIT ================= */
+renderNav();
+renderMain();
+</script>
+</body>
+</html>
